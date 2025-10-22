@@ -1,0 +1,41 @@
+thai-pos/
+├─ server/
+│  ├─ package.json
+│  ├─ knexfile.js
+│  ├─ .env.example
+│  ├─ migrations/
+│  │  ├─ 202509120001_create_products.js
+│  │  └─ 202509120002_create_variants.js
+│  ├─ seeds/
+│  │  └─ seed.js
+│  └─ src/
+│     ├─ index.js
+│     ├─ db.js
+│     ├─ utils/
+│     │  └─ asyncHandler.js
+│     ├─ middleware/
+│     │  └─ errorHandler.js
+│     └─ routes/
+│        ├─ products.js
+│        ├─ variants.js
+│        └─ restock.js
+└─ client/
+   ├─ package.json
+   ├─ index.html
+   ├─ vite.config.js
+   ├─ postcss.config.js
+   ├─ tailwind.config.js
+   └─ src/
+      ├─ main.jsx
+      ├─ App.jsx
+      ├─ styles.css
+      ├─ api.js
+      ├─ pages/
+      │  └─ Inventory.jsx
+      └─ components/
+         ├─ Tabs.jsx
+         ├─ Pagination.jsx
+         ├─ ProductCard.jsx
+         ├─ ProductPanel.jsx
+         ├─ LowStockTable.jsx
+         └─ RestockModal.jsx

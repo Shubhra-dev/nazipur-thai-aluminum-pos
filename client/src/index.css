@@ -1,0 +1,14 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Print A4 baseline (used later in invoices/returns) */
+@media print {
+  @page {
+    size: A4;
+    margin: 12mm;
+  }
+  .print-area {
+    display: block !important;
+  }
+}

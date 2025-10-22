@@ -1,0 +1,22 @@
+/server
+├── package.json
+├── knexfile.js
+├── .env.example
+├── src
+│   ├── index.js
+│   ├── db.js
+│   ├── routes
+│   │   ├── products.js
+│   │   ├── variants.js
+│   │   └── restock.js
+│   ├── controllers
+│   │   ├── products.js
+│   │   ├── variants.js
+│   │   └── restock.js
+│   └── middleware
+│       └── errorHandler.js
+├── migrations
+│   ├── 20250912151212_create_products_table.js
+│   └── 20250912151213_create_variants_table.js
+└── seeds
+    └── seed_data.js
