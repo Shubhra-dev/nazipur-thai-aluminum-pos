@@ -12,6 +12,7 @@ import {
  * - Stock column removed.
  */
 function POSLineItemRow({ item, onChange, onRemove }) {
+  console.log(item);
   const uoms = displayUomForProductType(item.product_type);
 
   const setField = (name, value) => {
@@ -37,6 +38,10 @@ function POSLineItemRow({ item, onChange, onRemove }) {
   };
 
   const onChangeQty = (value) => {
+    if (value > item.on_hand) {
+      alert("Selected quantity is bigger than stock");
+      return;
+    }
     const qty = Number(value || 0);
     const price = Number(item.unit_price || 0);
     // keep line_total editable, but recalc when qty changes
@@ -82,7 +87,7 @@ function POSLineItemRow({ item, onChange, onRemove }) {
       <td className="p-2">
         <input
           type="number"
-          step="0.001"
+          step="1"
           className="rounded border px-2 py-1 w-28"
           value={item.qty}
           onChange={(e) => onChangeQty(e.target.value)}

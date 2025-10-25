@@ -8,7 +8,7 @@ import {
 
 const router = Router();
 
-// GET /api/products
+// GET /api/products?q=&page=&page_size=
 router.get("/products", listProducts);
 
 // GET /api/products/:id

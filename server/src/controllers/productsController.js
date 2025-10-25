@@ -1,13 +1,44 @@
 import knex from "../db/knex.js";
 
-// GET /api/products
-export async function listProducts(_req, res, next) {
+/**
+ * GET /api/products?q=&page=&page_size=
+ * - q: filters by product name OR variant SKU (case-insensitive)
+ * - pagination based on distinct products
+ * Returns:
+ * { success, data: [...], pagination: { page, page_size, total } }
+ */
+export async function listProducts(req, res, next) {
   try {
-    const rows = await knex({ p: "products" })
+    const page = Math.max(1, Number(req.query.page || 1));
+    const pageSize = Math.min(
+      50,
+      Math.max(6, Number(req.query.page_size || 12))
+    );
+    const q = (req.query.q || "").trim();
+
+    // Base with LEFT JOIN to count active variants and sum on_hand
+    const base = knex({ p: "products" })
       .where("p.active", 1)
       .leftJoin({ v: "variants" }, function () {
         this.on("v.product_id", "p.id").andOn("v.active", knex.raw("1"));
       })
+      .modify((qb) => {
+        if (q) {
+          qb.andWhere((w) =>
+            w.whereILike("p.name", `%${q}%`).orWhereILike("v.sku", `%${q}%`)
+          );
+        }
+      });
+
+    // Total distinct products for pagination
+    const [{ cnt }] = await base
+      .clone()
+      .clearSelect()
+      .countDistinct({ cnt: "p.id" });
+
+    // Page of aggregated products
+    const rows = await base
+      .clone()
       .groupBy("p.id", "p.name", "p.type", "p.category", "p.active")
       .select(
         "p.id",
@@ -18,9 +49,15 @@ export async function listProducts(_req, res, next) {
         knex.raw("COUNT(v.id) AS variant_count"),
         knex.raw("COALESCE(SUM(v.on_hand),0) AS stock_total")
       )
-      .orderBy("p.name", "asc");
+      .orderBy("p.name", "asc")
+      .limit(pageSize)
+      .offset((page - 1) * pageSize);
 
-    res.json({ success: true, data: rows });
+    res.json({
+      success: true,
+      data: rows,
+      pagination: { page, page_size: pageSize, total: Number(cnt || 0) },
+    });
   } catch (err) {
     next(err);
   }

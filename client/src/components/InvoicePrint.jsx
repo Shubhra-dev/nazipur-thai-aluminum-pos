@@ -1,5 +1,6 @@
 import React, { forwardRef } from "react";
 import { displayUomForProductType } from "../lib/uom.js";
+import { useSelector } from "react-redux";
 
 function formatDDMMYYYY(dateLike) {
   const d = new Date(dateLike);
@@ -13,19 +14,26 @@ function fmtBDT(n) {
 const InvoicePrint = forwardRef(({ invoice }, ref) => {
   if (!invoice) return null;
 
-  const shopName = invoice.shop_name || "Nazipur Thai Aluminum & Glass";
-  const shopAddress =
-    invoice.shop_address || "Naogaon Road, Nazipur, Patnitala, Naogaon.";
-  const shopPhone = invoice.shop_phone || "01XXXXXXXXX";
-  const proprietor = "Chandan Kumar";
+  const shopName = "নজিপুর থাই অ্যালুমিনিয়াম এন্ড এস এস পয়েন্ট";
+  const shopAddress = "নজিপুর, পত্নীতলা, নওগাঁ ।";
+  const shopPhone = "01XXXXXXXXX";
+  const proprietor = "চন্দন কুমার (বিট্টু)";
 
   const subtotal = Number(invoice.subtotal || 0);
   const discount = Number(invoice.discount_bdt || 0);
-  const refunds = Number(invoice.refund_total || 0); // NEW
+  const refunds = Number(invoice.refund_total || 0);
   const baseGrand = subtotal - discount;
-  const grand = baseGrand - refunds; // NEW: subtract refunds
+  const grand = baseGrand - refunds;
   const paid = Number(invoice.paid_amount || 0);
   const due = Math.max(0, grand - paid);
+
+  const userData = useSelector((state) => state.auth);
+
+  const items = Array.isArray(invoice.items)
+    ? invoice.items
+    : Array.isArray(invoice.lines)
+    ? invoice.lines
+    : [];
 
   return (
     <div ref={ref} className="print-area p-6 text-[13px] bg-white">
@@ -64,13 +72,20 @@ const InvoicePrint = forwardRef(({ invoice }, ref) => {
 
       {/* Center header */}
       <div className="text-center">
-        <div className="hdr-title">{shopName}</div>
-        <div className="meta muted-2">{shopAddress}</div>
-        <div className="meta muted">
-          <b>Phone:</b> {shopPhone}
+        <div className="text-[28px] font-black leading-tight font-kalpurush">
+          {shopName}
         </div>
-        <div className="meta muted">
-          <b>Proprietor:</b> {proprietor}
+        <div className="flex items-center justify-center gap-5">
+          <div className="text-sm font-semibold font-kalpurush">
+            {shopAddress}
+          </div>
+
+          <div className="text-sm font-semibold font-kalpurush">
+            <b>মোবা:</b> {shopPhone}
+          </div>
+        </div>
+        <div className="text-xl font-semibold leading-normal font-kalpurush">
+          <b>প্রো:</b> {proprietor}
         </div>
       </div>
 
@@ -91,9 +106,9 @@ const InvoicePrint = forwardRef(({ invoice }, ref) => {
               <b>Address:</b> {invoice.customer_address}
             </div>
           ) : null}
-          {invoice.remark ? (
+          {invoice.return_remark ? (
             <div className="mt-1">
-              <b>Remarks:</b> {invoice.remark}
+              <b>Remarks:</b> {invoice.return_remark}
             </div>
           ) : null}
         </div>
@@ -136,14 +151,16 @@ const InvoicePrint = forwardRef(({ invoice }, ref) => {
           </tr>
         </thead>
         <tbody>
-          {(invoice.items || []).map((it, idx) => {
-            const uoms = displayUomForProductType(it.product_type);
+          {items.map((it, idx) => {
+            // defensive: unknown types default to base label
+            const uoms = displayUomForProductType(it.product_type || "other");
             const uomLabel = it.uom === "base" ? uoms.base : uoms.alt;
+
             const group =
               it.group_name && it.group_name !== "Default"
                 ? ` (${it.group_name})`
                 : "";
-            const line1 = `${it.product_name}${group}`;
+            const line1 = `${it.product_name || ""}${group}`;
             const line2 = it.variant_label || "";
 
             return (
@@ -162,6 +179,13 @@ const InvoicePrint = forwardRef(({ invoice }, ref) => {
               </tr>
             );
           })}
+          {items.length === 0 && (
+            <tr>
+              <td colSpan={6} style={{ textAlign: "center", color: "#666" }}>
+                No items
+              </td>
+            </tr>
+          )}
         </tbody>
       </table>
 
@@ -205,6 +229,7 @@ const InvoicePrint = forwardRef(({ invoice }, ref) => {
         </div>
       </div>
 
+      <div className="footer">Created By - {userData.user?.name || ""}</div>
       <div className="footer text-center">Thank you for your business.</div>
     </div>
   );

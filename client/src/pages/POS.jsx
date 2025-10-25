@@ -6,22 +6,29 @@ import Modal from "../components/Modal.jsx";
 import { apiGet, apiPost } from "../api.js";
 import { displayUomForProductType } from "../lib/uom.js";
 
+function fmt2(n) {
+  return Number(Number(n || 0).toFixed(2));
+}
+
 function POS() {
   const [customer, setCustomer] = useState({
     name: "",
     phone: "",
     address: "",
   });
+
   const [q, setQ] = useState("");
   const [results, setResults] = useState([]);
   const [items, setItems] = useState([]);
   const [discount, setDiscount] = useState("");
   const [paid, setPaid] = useState("");
-  const [invoice, setInvoice] = useState(null);
 
-  // Print preview modal state
+  // Preview/print modal
   const [showPreview, setShowPreview] = useState(false);
   const printRef = useRef(null);
+
+  // This holds the object passed to <InvoicePrint> (draft or saved)
+  const [previewInvoice, setPreviewInvoice] = useState(null);
 
   // Search product/variant/SKU
   useEffect(() => {
@@ -86,64 +93,111 @@ function POS() {
   const status =
     paidAmount >= grandTotal ? "PAID" : paidAmount > 0 ? "PARTIAL" : "UNPAID";
 
-  async function save() {
-    if (items.length === 0) return alert("Add at least one item");
-    for (const it of items) {
-      if (!it.qty || Number(it.qty) <= 0) return alert("Quantity required");
-      if (Number.isNaN(Number(it.unit_price)))
-        return alert("Invalid unit price");
-      if (Number.isNaN(Number(it.line_total)))
-        return alert("Invalid line total");
-    }
+  /** Build a DRAFT invoice object from the cart for preview */
+  function buildDraftInvoice() {
+    const lines = items.map((it, idx) => ({
+      id: idx + 1,
+      variant_id: it.variant_id,
+      sku: it.sku,
+      product_name: it.product_name,
+      product_type: it.product_type,
+      group_name: it.group_name,
+      variant_label:
+        it.size_label ||
+        it.color ||
+        (it.thickness_mm ? `${it.thickness_mm}mm` : "") ||
+        "",
+      uom: it.uom, // "base" or "alt"
+      qty: Number(it.qty || 0),
+      base_qty: null, // not needed for print
+      unit_price: Number(it.unit_price || 0),
+      line_total: Number(it.line_total || 0),
+      cost_at_sale: 0,
+    }));
 
-    const payload = {
-      customer: customer.phone ? customer : null,
-      lines: items.map((it) => ({
-        variant_id: it.variant_id,
-        uom: it.uom,
-        qty: Number(it.qty),
-        unit_price: Number(it.unit_price),
-        line_total: Number(it.line_total),
-      })),
-      discount_bdt: Number(discount || 0),
-      paid_amount: Number(paid || 0),
-      shop_name: "Nazipur Thai Aluminum & Glass",
-      shop_address: "Nazipur, Patnitala, Naogaon",
+    return {
+      invoice_no: "DRAFT",
+      created_at: new Date().toISOString(),
+      subtotal: fmt2(subtotal),
+      discount_bdt: fmt2(discount || 0),
+      grand_total: fmt2(grandTotal),
+      paid_amount: fmt2(paid || 0),
+      status,
+      shop_name: "নজিপুর থাই অ্যালুমিনিয়াম এন্ড গ্লাস",
+      shop_address: "নজিপুর, পত্নীতলা, নওগাঁ",
       shop_phone: "01XXXXXXXXX",
+      customer_name: customer.name || "",
+      customer_phone: customer.phone || "",
+      customer_address: customer.address || "",
+      items: lines,
+      refund_total: 0,
     };
-
-    const res = await apiPost("/invoices", payload);
-    setInvoice({
-      ...res.data,
-      customer_name: customer.name,
-      customer_phone: customer.phone,
-      customer_address: customer.address,
-    });
   }
 
-  async function saveAndOpenPreview() {
+  /** Open preview WITHOUT saving anything */
+  function openPreview() {
+    if (items.length === 0) return alert("Add at least one item");
+    const draft = buildDraftInvoice();
+    setPreviewInvoice(draft);
+    setShowPreview(true);
+  }
+
+  /** Complete & Print: create invoice on server, then print & clear cart */
+  async function completeAndPrint() {
     try {
-      await save();
-      setShowPreview(true); // open preview, do NOT clear the POS form yet
+      if (items.length === 0) return alert("Add at least one item");
+      for (const it of items) {
+        if (!it.qty || Number(it.qty) <= 0) return alert("Quantity required");
+        if (Number.isNaN(Number(it.unit_price)))
+          return alert("Invalid unit price");
+        if (Number.isNaN(Number(it.line_total)))
+          return alert("Invalid line total");
+      }
+
+      const payload = {
+        customer: customer.phone ? customer : null,
+        lines: items.map((it) => ({
+          variant_id: it.variant_id,
+          uom: it.uom, // "base" | "alt"
+          qty: Number(it.qty),
+          unit_price: Number(it.unit_price),
+          line_total: Number(it.line_total),
+        })),
+        discount_bdt: Number(discount || 0),
+        paid_amount: Number(paid || 0),
+        shop_name: "Nazipur Thai Aluminum & Glass",
+        shop_address: "Nazipur, Patnitala, Naogaon",
+        shop_phone: "01XXXXXXXXX",
+      };
+
+      const res = await apiPost("/invoices", payload);
+
+      // Build a print object mixing server head + current cart items
+      const savedForPrint = {
+        ...res.data,
+        customer_name: customer.name || "",
+        customer_phone: customer.phone || "",
+        customer_address: customer.address || "",
+        items: buildDraftInvoice().items, // the exact lines that were sold
+        refund_total: 0,
+      };
+
+      setPreviewInvoice(savedForPrint);
+      // Ensure modal is open
+      if (!showPreview) setShowPreview(true);
+
+      // Print, then clear cart and close preview
+      setTimeout(() => {
+        if (printRef.current) window.print();
+        // clear cart
+        setItems([]);
+        setDiscount("");
+        setPaid("");
+        setShowPreview(false);
+      }, 50);
     } catch (e) {
-      alert(e.message);
+      alert(e?.message || "Failed to save invoice");
     }
-  }
-
-  function handlePrint() {
-    if (printRef.current) {
-      window.print();
-    }
-  }
-
-  function handleComplete() {
-    // Clear cart and payment fields; keep customer to speed next sale
-    setItems([]);
-    setDiscount("");
-    setPaid("");
-    setShowPreview(false);
-    // Keep invoice in state if you want reprint ability later; or clear:
-    // setInvoice(null);
   }
 
   return (
@@ -167,11 +221,11 @@ function POS() {
                     className="block w-full text-left px-3 py-2 hover:bg-gray-50"
                   >
                     <div className="font-medium">
-                      {v.product_name} ({v.group_name || ""}{" "}
-                      {v.size_label ||
-                        v.color ||
-                        (v.thickness_mm ? `${v.thickness_mm}mm` : "")}
-                      )
+                      {v.product_name}{" "}
+                      {v.group_name && v.group_name !== "Default"
+                        ? `(${v.group_name})`
+                        : ""}
+                      {v.size_label ? ` — ${v.size_label}` : ""}
                     </div>
                     <div className="text-xs text-gray-600">SKU: {v.sku}</div>
                   </button>
@@ -250,17 +304,19 @@ function POS() {
             </div>
             <div className="mt-4 flex gap-2">
               <button
-                onClick={saveAndOpenPreview}
+                onClick={openPreview}
                 className="flex-1 rounded border px-3 py-2 bg-black text-white"
+                disabled={items.length === 0}
+                title={items.length === 0 ? "Add items first" : ""}
               >
-                Save & Print
+                Preview
               </button>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Print Preview Modal */}
+      {/* Preview / Print Modal (no DB write until Complete) */}
       <Modal
         open={showPreview}
         onClose={() => setShowPreview(false)}
@@ -268,23 +324,20 @@ function POS() {
         maxWidth="max-w-3xl"
       >
         <div className="bg-white">
-          <InvoicePrint ref={printRef} invoice={invoice} />
+          <InvoicePrint ref={printRef} invoice={previewInvoice} />
         </div>
         <div className="mt-4 flex justify-end gap-2">
           <button
             className="px-3 py-1 rounded-md border"
             onClick={() => setShowPreview(false)}
           >
-            Edit
-          </button>
-          <button className="px-3 py-1 rounded-md border" onClick={handlePrint}>
-            Print
+            Close
           </button>
           <button
             className="px-3 py-1 rounded-md border bg-black text-white"
-            onClick={handleComplete}
+            onClick={completeAndPrint}
           >
-            Complete
+            Complete & Print
           </button>
         </div>
       </Modal>

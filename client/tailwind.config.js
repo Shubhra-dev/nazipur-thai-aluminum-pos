@@ -5,7 +5,11 @@ export default {
     "./src/**/*.{js,jsx,ts,tsx}", // 👈 add jsx here
   ],
   theme: {
-    extend: {},
+    extend: {
+      fontFamily: {
+        kalpurush: ["Kalpurush", "sans-serif"],
+      },
+    },
   },
   plugins: [],
 };

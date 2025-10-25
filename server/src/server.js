@@ -13,6 +13,8 @@ import returnsRoute from "./routes/returns.js";
 // IMPORTANT: mount your existing customers route
 import customersRoute from "./routes/customers.js";
 import duesRoutes from "./routes/dues.js"; // NEW
+import authRoutes from "./routes/auth.js";
+import usersRoutes from "./routes/users.js";
 
 dotenv.config();
 
@@ -33,7 +35,9 @@ app.use("/api", searchRoute);
 app.use("/api", reportsRoute);
 app.use("/api", returnsRoute);
 app.use("/api", customersRoute);
-app.use("/api/dues", duesRoutes); // <-- this fixes 404 for /api/customers/search
+app.use("/api/dues", duesRoutes);
+app.use("/api/auth", authRoutes);
+app.use("/api/users", usersRoutes); // <-- this fixes 404 for /api/customers/search
 
 // Error handler
 app.use((err, _req, res, _next) => {

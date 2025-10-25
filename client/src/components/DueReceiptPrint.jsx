@@ -7,11 +7,10 @@ const DueReceiptPrint = forwardRef(
   ({ receipt, invoice, amount, remainingAfter }, ref) => {
     if (!receipt || !invoice) return null;
 
-    const shopName = invoice.shop_name || "Nazipur Thai Aluminum & Glass";
-    const shopAddress =
-      invoice.shop_address || "Naogaon Road, Nazipur, Patnitala, Naogaon.";
-    const shopPhone = invoice.shop_phone || "01XXXXXXXXX";
-    const proprietor = "Chandan Kumar";
+    const shopName = "নজিপুর থাই অ্যালুমিনিয়াম এন্ড এস এস পয়েন্ট";
+    const shopAddress = "নজিপুর, পত্নীতলা, নওগাঁ";
+    const shopPhone = "01XXXXXXXXX";
+    const proprietor = "চন্দন কুমার (বিট্টু)";
 
     return (
       <div ref={ref} className="p-6 bg-white text-[13px]">
@@ -36,10 +35,10 @@ const DueReceiptPrint = forwardRef(
 
         <div className="text-center">
           <div className="hdr-title">Payment Receipt</div>
-          <div className="meta">{shopName}</div>
-          <div className="meta">{shopAddress}</div>
-          <div className="meta">
-            Phone: {shopPhone} — Proprietor: {proprietor}
+          <div className="font-kalpurush text-xl font-bold">{shopName}</div>
+          <div className="font-kalpurush text-base">{shopAddress}</div>
+          <div className="font-kalpurush text-base">
+            মোবাঃ {shopPhone} — প্রোঃ {proprietor}
           </div>
         </div>
 

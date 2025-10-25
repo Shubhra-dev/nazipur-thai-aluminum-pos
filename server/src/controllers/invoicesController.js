@@ -173,33 +173,59 @@ export async function listInvoices(req, res, next) {
 /* ========= GET ========= */
 /**
  * GET /api/invoices/:id
- * Returns invoice + lines (+ customer fields) + refund_total and adjusted totals
+ * Returns invoice + lines (+ customer fields) + refund_total
+ * GUARANTEES: data.items is an array ordered by line id ASC
  */
-
-/* … keep your other exports exactly as you have them … */
 export async function getInvoiceById(req, res, next) {
   try {
     const id = Number(req.params.id);
-    const i = await knex({ i: "invoices" })
+    const inv = await knex({ i: "invoices" })
       .leftJoin({ c: "customers" }, "c.id", "i.customer_id")
       .where("i.id", id)
       .select(
-        "i.*",
+        "i.id",
+        "i.invoice_no",
+        "i.created_at",
+        "i.subtotal",
+        "i.discount_bdt",
+        "i.grand_total",
+        "i.paid_amount",
+        "i.status",
+        "i.shop_name",
+        "i.shop_address",
+        "i.shop_phone",
         "c.name as customer_name",
         "c.phone as customer_phone",
         "c.address as customer_address"
       )
       .first();
-    if (!i)
+
+    if (!inv) {
       return res
         .status(404)
         .json({ error: true, message: "Invoice not found" });
+    }
 
-    const items = await knex("invoice_items")
-      .where({ invoice_id: id })
-      .orderBy("id", "asc");
+    // Always fetch items the UI/print expects
+    const items = await knex({ ii: "invoice_items" })
+      .where("ii.invoice_id", id)
+      .select(
+        "ii.id",
+        "ii.variant_id",
+        "ii.sku",
+        "ii.product_name",
+        "ii.product_type",
+        "ii.variant_label",
+        "ii.uom",
+        "ii.qty",
+        "ii.base_qty",
+        "ii.unit_price",
+        "ii.line_total",
+        "ii.cost_at_sale"
+      )
+      .orderBy("ii.id", "asc");
 
-    // Sum refunds for this invoice (for print)
+    // Sum refunds for this invoice (for display/print)
     const { sum_refund } = await knex({ r: "returns" })
       .join({ ri: "return_items" }, "ri.return_id", "r.id")
       .where("r.invoice_id", id)
@@ -209,9 +235,9 @@ export async function getInvoiceById(req, res, next) {
     res.json({
       success: true,
       data: {
-        ...i,
+        ...inv,
         items,
-        refund_total: Number(sum_refund || 0), // used by InvoicePrint
+        refund_total: Number(sum_refund || 0),
       },
     });
   } catch (err) {

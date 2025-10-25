@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import Tabs from "../components/Tabs.jsx";
 import ProductCard from "../components/ProductCard.jsx";
 import { apiGet, apiPost } from "../api.js";
@@ -8,8 +8,20 @@ import Modal from "../components/Modal.jsx";
 
 function Inventory() {
   const [tab, setTab] = useState("Products");
+
   const [list, setList] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // NEW: search + pagination state
+  const [q, setQ] = useState("");
+  const [page, setPage] = useState(1);
+  const pageSize = 12;
+  const [total, setTotal] = useState(0);
+  const pages = useMemo(
+    () => Math.max(1, Math.ceil(total / pageSize)),
+    [total]
+  );
+
   const [openId, setOpenId] = useState(null);
   const [showAdd, setShowAdd] = useState(false);
   const [newProduct, setNewProduct] = useState({
@@ -18,11 +30,18 @@ function Inventory() {
     category: "",
   });
 
-  async function load() {
+  async function load(p = page) {
     setLoading(true);
     try {
-      const res = await apiGet("/products");
-      setList(res.data);
+      const params = new URLSearchParams({
+        page: p,
+        page_size: pageSize,
+        q,
+      });
+      const res = await apiGet(`/products?${params.toString()}`);
+      setList(res.data || []);
+      setTotal(res.pagination?.total || 0);
+      setPage(p);
     } catch (e) {
       alert(e.message);
     } finally {
@@ -31,8 +50,9 @@ function Inventory() {
   }
 
   useEffect(() => {
-    load();
-  }, []);
+    load(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [q]);
 
   async function createProduct() {
     if (!newProduct.name) {
@@ -47,7 +67,7 @@ function Inventory() {
       });
       setShowAdd(false);
       setNewProduct({ name: "", type: "Glass", category: "" });
-      load();
+      load(1);
     } catch (e) {
       alert(e.message);
     }
@@ -59,7 +79,19 @@ function Inventory() {
 
       {tab === "Products" && (
         <>
-          <div className="mb-4 flex justify-end">
+          {/* Toolbar: search + add */}
+          <div className="mb-4 flex flex-wrap items-end gap-2">
+            <div className="flex-1 min-w-[220px]">
+              <label className="block text-xs text-gray-600 mb-1">
+                Search (name / SKU)
+              </label>
+              <input
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="e.g., Clear Glass, GL-5MM..."
+                className="w-full rounded border px-3 py-2"
+              />
+            </div>
             <button
               onClick={() => setShowAdd(true)}
               className="px-4 py-2 rounded-md border bg-black text-white"
@@ -70,16 +102,43 @@ function Inventory() {
 
           {loading ? (
             <div>Loading...</div>
+          ) : list.length === 0 ? (
+            <div className="text-gray-600">No products found.</div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {list.map((p) => (
-                <ProductCard
-                  key={p.id}
-                  product={p}
-                  onClick={() => setOpenId(p.id)}
-                />
-              ))}
-            </div>
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {list.map((p) => (
+                  <ProductCard
+                    key={p.id}
+                    product={p}
+                    onClick={() => setOpenId(p.id)}
+                  />
+                ))}
+              </div>
+
+              {/* Pagination */}
+              <div className="mt-4 flex items-center justify-between">
+                <div className="text-sm text-gray-600">
+                  Page {page} / {pages} — {total} product(s)
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    className="px-3 py-1 rounded border disabled:opacity-50"
+                    disabled={page <= 1}
+                    onClick={() => load(page - 1)}
+                  >
+                    Prev
+                  </button>
+                  <button
+                    className="px-3 py-1 rounded border disabled:opacity-50"
+                    disabled={page >= pages}
+                    onClick={() => load(page + 1)}
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            </>
           )}
 
           <ProductPanel
@@ -87,7 +146,7 @@ function Inventory() {
             open={!!openId}
             onClose={(changed) => {
               setOpenId(null);
-              if (changed) load();
+              if (changed) load(page);
             }}
           />
         </>
@@ -95,6 +154,7 @@ function Inventory() {
 
       {tab === "Low Stock" && <LowStockTable />}
 
+      {/* Add Product Modal */}
       <Modal
         open={showAdd}
         onClose={() => setShowAdd(false)}

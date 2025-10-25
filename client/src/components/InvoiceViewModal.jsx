@@ -13,6 +13,12 @@ export default function InvoiceViewModal({ invoiceId, onClose }) {
       const res = await apiGet(`/invoices/${invoiceId}`);
       const raw = res.data || {};
 
+      const items = Array.isArray(raw.items)
+        ? raw.items
+        : Array.isArray(raw.lines)
+        ? raw.lines
+        : [];
+
       const refund = Number(raw.refund_total || 0);
       const grand = Number(raw.grand_total || 0);
       const paid = Number(raw.paid_amount || 0);
@@ -21,12 +27,12 @@ export default function InvoiceViewModal({ invoiceId, onClose }) {
 
       setInv({
         ...raw,
+        items,
         customer_name: raw.customer_name || "",
         customer_phone: raw.customer_phone || "",
         refund_total: refund,
         revised_grand_total: revisedGrand,
         due,
-        // add a ready remark text for the print/view
         return_remark:
           refund > 0 ? `Return adjustment applied: ৳ ${refund.toFixed(2)}` : "",
       });
@@ -51,9 +57,7 @@ export default function InvoiceViewModal({ invoiceId, onClose }) {
         </button>
         <button
           className="px-3 py-1 rounded-md border"
-          onClick={() => {
-            if (printRef.current) window.print();
-          }}
+          onClick={() => window.print()}
         >
           Print
         </button>
